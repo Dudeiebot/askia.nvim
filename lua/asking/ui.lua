@@ -47,7 +47,7 @@ local function footer_text()
   if state.status then
     return (" %s %s  ·  <C-c> cancel "):format(SPINNER[state.frame], state.status)
   end
-  return (" %s  ·  <CR> follow up  ·  y yank  ·  q close "):format(state.label)
+  return (" %s  ·  Press Enter to follow up  ·  y yank  ·  q close "):format(state.label)
 end
 
 local function apply_footer()
