@@ -1,0 +1,171 @@
+*asking.txt*    Ask Claude about the code you're looking at
+
+==============================================================================
+CONTENTS                                                     *asking-contents*
+
+  1. Introduction ......................... |asking-introduction|
+  2. Requirements ......................... |asking-requirements|
+  3. Setup ................................ |asking-setup|
+  4. Commands ............................. |asking-commands|
+  5. Mappings ............................. |asking-mappings|
+  6. Configuration ........................ |asking-configuration|
+  7. How the code is chosen ............... |asking-selection|
+  8. Follow-ups ........................... |asking-follow-ups|
+  9. Limits ............................... |asking-limits|
+ 10. Health .............................. |asking-health|
+
+==============================================================================
+1. INTRODUCTION                                          *asking-introduction*
+
+asking.nvim sends a snippet of the buffer you are in to Claude Code and streams
+the answer back into a floating window.
+
+Claude is given read-only tools, so it can grep for callers or follow a type
+definition to answer properly, while being unable to edit anything. Answers are
+therefore informed by the rest of the repository, not just the lines you sent.
+
+==============================================================================
+2. REQUIREMENTS                                          *asking-requirements*
+
+  - Neovim 0.10 or newer (`vim.system`, `vim.uv`)
+  - Claude Code on $PATH: https://claude.com/claude-code
+  - A treesitter parser for the language, if you want to use |:Ask| without a
+    selection. Without one, select a range first.
+
+==============================================================================
+3. SETUP                                                        *asking-setup*
+
+Calling setup() is optional; the commands work without it. Call it to change
+defaults or to have a mapping created for you. >lua
+
+    require("asking").setup({
+      model = "sonnet",
+      keymaps = { ask = "<leader>aa" },
+    })
+<
+==============================================================================
+4. COMMANDS                                                  *asking-commands*
+
+                                                                        *:Ask*
+:[range]Ask [question]
+    Ask about [range], or about the function under the cursor when no range is
+    given. With no [question], |asking-config-default_question| is used. >
+
+      :Ask
+      :Ask why is this taking self by value?
+      :'<,'>Ask what breaks if this is nil?
+      :%Ask summarise this module
+<
+                                                                  *:AskFollow*
+:AskFollow {question}
+    Continue the conversation in the open answer window. Only the new question
+    is sent; Claude still has the snippet from the first turn.
+
+                                                                  *:AskCancel*
+:AskCancel
+    Cancel the request in flight.
+
+==============================================================================
+5. MAPPINGS                                                  *asking-mappings*
+
+No global mapping is created unless you ask for one via
+|asking-config-keymaps|.
+
+Inside the answer window:
+
+  <CR>      ask a follow-up question
+  y         yank the answer
+  q, <Esc>  close the window
+  <C-c>     cancel the request in flight
+
+==============================================================================
+6. CONFIGURATION                                        *asking-configuration*
+
+Defaults: >lua
+
+    {
+      cmd = "claude",
+      model = nil,
+      allowed_tools = { "Read", "Grep", "Glob" },
+      default_question = "Explain what this does and why.",
+      system_prompt = "...",
+      timeout = 180000,
+      window = {
+        width = 0.55,
+        height = 0.6,
+        border = "rounded",
+        show_tools = true,
+      },
+      keymaps = {},
+    }
+<
+cmd                                                     *asking-config-cmd*
+    The Claude Code executable. Default: "claude".
+
+model                                                   *asking-config-model*
+    Model alias or name passed to --model. nil keeps whatever `claude` is
+    already configured to use. "sonnet" is noticeably faster for one-shot
+    questions. Default: nil.
+
+allowed_tools                                   *asking-config-allowed_tools*
+    Tools Claude may use, passed to --allowedTools. Keep these read-only unless
+    you want it touching your working tree.
+    Default: { "Read", "Grep", "Glob" }.
+
+default_question                             *asking-config-default_question*
+    Used when |:Ask| is given no question.
+    Default: "Explain what this does and why.".
+
+system_prompt                                   *asking-config-system_prompt*
+    Appended to Claude's system prompt via --append-system-prompt. Use it to
+    change the tone or length of answers.
+
+timeout                                               *asking-config-timeout*
+    Milliseconds before the request is killed. Default: 180000.
+
+window                                                 *asking-config-window*
+    width and height are fractions of the editor. border is any value
+    |nvim_open_win()| accepts. show_tools toggles the dimmed lines that appear
+    as Claude reaches for context.
+
+keymaps                                               *asking-config-keymaps*
+    { ask = "<leader>aa" } creates that mapping in normal and visual mode.
+    Empty or false creates nothing. Default: {}.
+
+==============================================================================
+7. HOW THE CODE IS CHOSEN                                   *asking-selection*
+
+An explicit range always wins. Without one, asking.nvim walks up the syntax
+tree from the cursor until it reaches a node whose type contains "function",
+"method", or "class". That covers Rust `function_item`, Go
+`function_declaration`, Python `function_definition`, TypeScript
+`method_definition` and others without special-casing any language.
+
+The prompt is the file path, the line range, and the code in a fenced block.
+The fence widens itself if the snippet contains backticks of its own.
+
+==============================================================================
+8. FOLLOW-UPS                                               *asking-follow-ups*
+
+Each |:Ask| starts a fresh Claude session. The answer window remembers that
+session's id, so <CR> and |:AskFollow| resume the conversation rather than
+starting over.
+
+==============================================================================
+9. LIMITS                                                       *asking-limits*
+
+A cold call takes roughly ten to fifteen seconds before the first token, and
+streaming only hides so much of that. This is the right shape for "explain
+this" and the wrong shape for a tight back-and-forth; for that, an interactive
+Claude Code session in a |:terminal| split still wins.
+
+==============================================================================
+10. HEALTH                                                      *asking-health*
+
+>
+    :checkhealth asking
+<
+Reports whether the executable was found, its version, the Neovim version, and
+which treesitter parsers are installed.
+
+vim:tw=78:ts=8:ft=help:norl:
