@@ -45,7 +45,7 @@ Inside the answer window: `<CR>` follow up · `y` yank · `q` close ·
 
 ```lua
 {
-  "Dudeiebot/asking.nvim",
+  "Dudeiebot/askia.nvim",
   cmd = { "Ask", "AskFollow", "AskCancel" },
   keys = {
     { "<leader>aa", ":Ask<CR>", mode = { "n", "x" }, silent = true, desc = "Ask Claude" },
@@ -57,13 +57,13 @@ Inside the answer window: `<CR>` follow up · `y` yank · `q` close ·
 **packer.nvim**
 
 ```lua
-use({ "Dudeiebot/asking.nvim" })
+use({ "Dudeiebot/askia.nvim" })
 ```
 
 **vim-plug**
 
 ```vim
-Plug 'Dudeiebot/asking.nvim'
+Plug 'Dudeiebot/askia.nvim'
 ```
 
 Calling `setup()` is optional — the commands work without it. Call it to change
