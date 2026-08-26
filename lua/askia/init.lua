@@ -339,6 +339,18 @@ local function open_terminal_window()
   end
 end
 
+--- Turn the current buffer into a terminal running `cmd`.
+---
+--- jobstart()'s `term` option landed in 0.11, where it replaced termopen(); on
+--- 0.10 the key is silently ignored, which starts a background job and leaves
+--- you looking at an empty buffer.
+local function start_terminal(cmd, cwd, on_exit)
+  if vim.fn.has("nvim-0.11") == 1 then
+    return vim.fn.jobstart(cmd, { term = true, cwd = cwd, on_exit = on_exit })
+  end
+  return vim.fn.termopen(cmd, { cwd = cwd, on_exit = on_exit })
+end
+
 --- Hand this project's conversation to a real interactive Claude session.
 ---
 --- The float is a one-shot shape; this is the door out of it. The session id
@@ -361,17 +373,11 @@ function M.escalate()
 
   open_terminal_window()
   local buf = vim.api.nvim_get_current_buf()
-  vim.fn.jobstart(M.terminal_command(id), {
-    term = true,
-    cwd = root,
-    on_exit = function()
-      vim.schedule(function()
-        if vim.api.nvim_buf_is_valid(buf) then
-          vim.api.nvim_buf_delete(buf, { force = true })
-        end
-      end)
-    end,
-  })
+  start_terminal(M.terminal_command(id), root, function()
+    vim.schedule(function()
+      if vim.api.nvim_buf_is_valid(buf) then vim.api.nvim_buf_delete(buf, { force = true }) end
+    end)
+  end)
   vim.cmd("startinsert")
 end
 
