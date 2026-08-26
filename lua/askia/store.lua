@@ -17,9 +17,7 @@ function M.now()
   return seconds + micros / 1e6
 end
 
-function M.path()
-  return vim.fs.joinpath(vim.fn.stdpath("state"), "askia", "sessions.json")
-end
+function M.path() return vim.fs.joinpath(vim.fn.stdpath("state"), "askia", "sessions.json") end
 
 ---@return table<string, { id: string, used: number }>
 function M.read()

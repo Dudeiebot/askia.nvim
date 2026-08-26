@@ -16,8 +16,7 @@ local defaults = {
   -- Used when :Ask is given no question.
   default_question = "Explain what this does and why.",
   -- ... and when references are attached, where "this" alone is ambiguous.
-  default_question_with_references =
-    "Explain what this does and why, and how each attached reference relates to it.",
+  default_question_with_references = "Explain what this does and why, and how each attached reference relates to it.",
   -- Appended to Claude's system prompt.
   system_prompt = "You are answering a question asked from inside Neovim, about a "
     .. "snippet the user is looking at right now. Be concise and concrete: no preamble, "

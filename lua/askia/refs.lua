@@ -54,13 +54,8 @@ function M.resolve()
     local l1, l2, text = item.l1, item.l2, item.text
 
     if item.mark and vim.api.nvim_buf_is_valid(item.bufnr) then
-      local ok, pos = pcall(
-        vim.api.nvim_buf_get_extmark_by_id,
-        item.bufnr,
-        ns,
-        item.mark,
-        { details = true }
-      )
+      local ok, pos =
+        pcall(vim.api.nvim_buf_get_extmark_by_id, item.bufnr, ns, item.mark, { details = true })
       if ok and pos and pos[1] then
         l1 = pos[1] + 1
         l2 = ((pos[3] and pos[3].end_row) or pos[1]) + 1
@@ -80,9 +75,7 @@ function M.resolve()
   return out
 end
 
-function M.count()
-  return #items
-end
+function M.count() return #items end
 
 ---@return string[] one line per reference, for :AskInfo
 function M.summary()

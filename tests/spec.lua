@@ -20,7 +20,11 @@ vim.bo.filetype = "lua"
 
 local done, err_out = false, nil
 local orig_finish = ui.finish
-ui.finish = function(e) orig_finish(e); done = true; err_out = e end
+ui.finish = function(e)
+  orig_finish(e)
+  done = true
+  err_out = e
+end
 
 local function read_argv()
   local f = assert(io.open(assert(os.getenv("ASKIA_ARGV_LOG")), "rb"))
@@ -42,9 +46,10 @@ end
 
 -- 1. cursor inside the method body, no range: treesitter should find it.
 vim.api.nvim_win_set_cursor(0, { 8, 4 })
-local lines = run(function()
-  vim.cmd("Ask why does this take self by value?")
-end, "cursor mode")
+local lines = run(
+  function() vim.cmd("Ask why does this take self by value?") end,
+  "cursor mode"
+)
 
 print("=== window after cursor-mode ask ===")
 print(table.concat(lines, "\n"))
@@ -84,7 +89,9 @@ print(body)
 -- 3. :Ask from inside the answer window is refused, not misdirected.
 local warned = false
 local orig_notify = vim.notify
-vim.notify = function(msg, lvl) if msg:match("run :Ask from a code buffer") then warned = true end end
+vim.notify = function(msg, lvl)
+  if msg:match("run :Ask from a code buffer") then warned = true end
+end
 vim.cmd("Ask")
 vim.notify = orig_notify
 assert(warned, ":Ask inside the answer window was not refused")
@@ -107,8 +114,6 @@ vim.api.nvim_win_set_cursor(0, { 8, 0 })
 run(function() vim.cmd("Ask") end, "default question")
 argv = read_argv()
 assert(argv[2]:match("Explain what this does and why%.$"), "default question missing")
-
-
 
 -- 6. a second language family, to confirm the node-type match is not lua-specific.
 ui.close()
@@ -166,20 +171,26 @@ assert(i >= 0, "second :Ask in the same project did not reuse the session")
 assert(argv2[i + 2] == "11111111-2222-3333-4444-555555555555", "wrong session id reused")
 
 -- 10. :Ask! ignores the stored session.
-assert(not vim.tbl_contains(ask_again("Ask! third question", "session: bang"), "--resume"),
-  ":Ask! must start cold")
+assert(
+  not vim.tbl_contains(ask_again("Ask! third question", "session: bang"), "--resume"),
+  ":Ask! must start cold"
+)
 
 -- 11. session = "question" never reuses.
 require("askia.config").setup({ session = "question" })
-assert(not vim.tbl_contains(ask_again("Ask fourth", "session: per-question"), "--resume"),
-  'session = "question" must never resume')
+assert(
+  not vim.tbl_contains(ask_again("Ask fourth", "session: per-question"), "--resume"),
+  'session = "question" must never resume'
+)
 
 -- 12. a session past its ttl is abandoned rather than resumed.
 require("askia.config").setup({ session = "project", session_ttl = 0.0001 }) -- ~6ms
 ask_again("Ask fifth", "session: ttl warm-up")
 vim.wait(50)
-assert(not vim.tbl_contains(ask_again("Ask sixth", "session: ttl"), "--resume"),
-  "an expired session must not be resumed")
+assert(
+  not vim.tbl_contains(ask_again("Ask sixth", "session: ttl"), "--resume"),
+  "an expired session must not be resumed"
+)
 require("askia.config").setup({ session_ttl = 30 })
 print("session handling ok")
 
@@ -191,8 +202,10 @@ assert(not ui.is_open(), "window still open after toggle")
 assert(vim.api.nvim_buf_is_valid(answer_buf), "hiding must not destroy the answer")
 assert(ui.toggle() == true, "toggle should bring it back")
 assert(ui.is_open(), "window did not come back")
-assert(vim.deep_equal(vim.api.nvim_buf_get_lines(ui.answer_buf(), 0, -1, false), before),
-  "answer changed across hide/restore")
+assert(
+  vim.deep_equal(vim.api.nvim_buf_get_lines(ui.answer_buf(), 0, -1, false), before),
+  "answer changed across hide/restore"
+)
 
 -- and nothing may swap the buffer out of that window (the <Tab> jumplist bug).
 local win = vim.api.nvim_get_current_win()
@@ -238,8 +251,10 @@ local base_width = math.floor(cols * 0.55)
 local d = ui.dimensions()
 assert(d, "no window to measure")
 assert(d.width == base_width, ("width %d, expected %d"):format(d.width, base_width))
-assert(d.height >= 3 and d.height <= ceiling,
-  ("height %d outside [3, %d]"):format(d.height, ceiling))
+assert(
+  d.height >= 3 and d.height <= ceiling,
+  ("height %d outside [3, %d]"):format(d.height, ceiling)
+)
 assert(d.height < rows, "auto-height should not fill the editor for a short answer")
 
 feed("+")
@@ -253,8 +268,10 @@ assert(ui.dimensions().width == d.width, "< did not narrow it back")
 
 feed("M")
 local maxed = ui.dimensions()
-assert(maxed.width == cols - 2 and maxed.height == rows - 2,
-  ("maximize gave %dx%d, expected %dx%d"):format(maxed.width, maxed.height, cols - 2, rows - 2))
+assert(
+  maxed.width == cols - 2 and maxed.height == rows - 2,
+  ("maximize gave %dx%d, expected %dx%d"):format(maxed.width, maxed.height, cols - 2, rows - 2)
+)
 feed("M")
 assert(ui.dimensions().width == d.width, "maximize did not toggle back")
 
@@ -279,7 +296,7 @@ vim.api.nvim_win_set_cursor(0, { 8, 0 })
 done = false
 local notices = {}
 local real_notify = vim.notify
-vim.notify = function(msg, lvl) table.insert(notices, msg); end
+vim.notify = function(msg, lvl) table.insert(notices, msg) end
 vim.cmd("Ask a question we will abandon")
 assert(ui.is_open(), "window should be up while streaming")
 require("askia").quit()
@@ -287,8 +304,7 @@ assert(vim.wait(10000, function() return done end, 30), "the abandoned job never
 assert(not ui.is_open() and ui.answer_buf() == nil, "quit left state behind")
 vim.notify = real_notify
 for _, msg in ipairs(notices) do
-  assert(not msg:match("answer ready"),
-    "quit still advertised an answer that was thrown away")
+  assert(not msg:match("answer ready"), "quit still advertised an answer that was thrown away")
 end
 print("quit ok")
 
@@ -399,7 +415,12 @@ ask_again("Ask before checking info", "store: info")
 -- Called with the answer window focused, as it usually will be: it must still
 -- report the project the question came from, not the scratch buffer's.
 local info = table.concat(askia.info(), "\n")
-assert(info:match("WDUDE/asking"), "info reported the wrong project:\n" .. info)
+-- Compared against the checkout's own path rather than a literal: this repo
+-- lives somewhere else on CI.
+assert(
+  info:find(vim.fn.fnamemodify(ROOT, ":~"), 1, true),
+  "info reported the wrong project:\n" .. info
+)
 assert(info:match("root"), "no root in :AskInfo")
 assert(info:match("11111111%-2222"), "no session id in :AskInfo:\n" .. info)
 assert(info:match("ago"), "no age in :AskInfo")
@@ -413,7 +434,9 @@ askia.reset_session()
 -- nothing to hand over yet
 local warned_no_session = false
 local plain_notify = vim.notify
-vim.notify = function(msg) if msg:match("no session to hand over") then warned_no_session = true end end
+vim.notify = function(msg)
+  if msg:match("no session to hand over") then warned_no_session = true end
+end
 local tabs_before = #vim.api.nvim_list_tabpages()
 askia.escalate()
 vim.notify = plain_notify
@@ -422,8 +445,13 @@ assert(#vim.api.nvim_list_tabpages() == tabs_before, "it opened a window with no
 
 ask_again("Ask before escalating", "terminal: session")
 local id = "11111111-2222-3333-4444-555555555555"
-assert(vim.deep_equal(askia.terminal_command(id), { SP .. "/fake-claude", "--resume", id, "--model", "sonnet" }),
-  "wrong command: " .. vim.inspect(askia.terminal_command(id)))
+assert(
+  vim.deep_equal(
+    askia.terminal_command(id),
+    { SP .. "/fake-claude", "--resume", id, "--model", "sonnet" }
+  ),
+  "wrong command: " .. vim.inspect(askia.terminal_command(id))
+)
 
 local answer = ui.answer_buf()
 askia.escalate()
@@ -439,7 +467,10 @@ vim.cmd("tabclose")
 askia.setup({ terminal = { open = "vsplit" } })
 local wins_before = #vim.api.nvim_tabpage_list_wins(0)
 askia.escalate()
-assert(vim.bo[vim.api.nvim_get_current_buf()].buftype == "terminal", "vsplit opened no terminal")
+assert(
+  vim.bo[vim.api.nvim_get_current_buf()].buftype == "terminal",
+  "vsplit opened no terminal"
+)
 assert(#vim.api.nvim_tabpage_list_wins(0) == wins_before + 1, "vsplit did not split")
 print("terminal escalation ok")
 
@@ -452,12 +483,12 @@ local function write(rel, text)
   return path
 end
 
-write("repo/.git/HEAD")                    -- a checkout ...
-write("repo/packages/api/package.json")    -- ... with a manifest below it
+write("repo/.git/HEAD") -- a checkout ...
+write("repo/packages/api/package.json") -- ... with a manifest below it
 local in_repo = write("repo/packages/api/main.js")
 
-write("js/package.json")                   -- no vcs: a js project ...
-write("js/crates/engine/Cargo.toml")       -- ... with a rust crate inside
+write("js/package.json") -- no vcs: a js project ...
+write("js/crates/engine/Cargo.toml") -- ... with a rust crate inside
 local in_crate = write("js/crates/engine/lib.rs")
 
 local loose = write("plain/deep/loose.txt") -- nothing project-shaped at all
@@ -472,24 +503,34 @@ local function root_of(path)
   return askia.project_root(0)
 end
 
-assert(root_of(in_repo) == tmp .. "/repo",
-  "a checkout should win over a manifest inside it, got " .. root_of(in_repo))
-assert(root_of(in_crate) == tmp .. "/js/crates/engine",
-  "the nearest manifest should win, not the first in the list, got " .. root_of(in_crate))
-assert(root_of(loose) == tmp .. "/plain/deep",
-  "an unmarked file should key on its own directory, got " .. root_of(loose))
+assert(
+  root_of(in_repo) == tmp .. "/repo",
+  "a checkout should win over a manifest inside it, got " .. root_of(in_repo)
+)
+assert(
+  root_of(in_crate) == tmp .. "/js/crates/engine",
+  "the nearest manifest should win, not the first in the list, got " .. root_of(in_crate)
+)
+assert(
+  root_of(loose) == tmp .. "/plain/deep",
+  "an unmarked file should key on its own directory, got " .. root_of(loose)
+)
 
 -- A nameless buffer has no path to walk up from, so vim.fs.root() starts at the
 -- current directory: inside a checkout that still resolves to the repo, and
 -- only somewhere unmarked does it come back as the cwd itself.
 ui.close()
 vim.cmd("enew")
-assert(askia.project_root(0) == ROOT,
-  "a nameless buffer inside a repo should key on the repo, got " .. askia.project_root(0))
+assert(
+  askia.project_root(0) == ROOT,
+  "a nameless buffer inside a repo should key on the repo, got " .. askia.project_root(0)
+)
 
 vim.cmd("cd " .. tmp .. "/plain/deep")
-assert(askia.project_root(0) == tmp .. "/plain/deep",
-  "with nothing above the cwd it should key on the cwd, got " .. askia.project_root(0))
+assert(
+  askia.project_root(0) == tmp .. "/plain/deep",
+  "with nothing above the cwd it should key on the cwd, got " .. askia.project_root(0)
+)
 vim.cmd("cd " .. ROOT .. "/tests")
 vim.fn.delete(tmp, "rf")
 print("root resolution ok")
@@ -537,9 +578,11 @@ vim.api.nvim_buf_set_lines(0, 0, 0, false, { "-- a new line at the top", "-- and
 vim.api.nvim_win_set_cursor(0, { 10, 0 })
 run(function() vim.cmd("Ask and now?") end, "refs: after an edit")
 prompt = read_argv()[2]
-assert(prompt:find("Reference: fixtures/greeter%.lua %(lines 5%-7%)"),
-  "the reference did not follow the edit:\n" .. prompt)
-assert(prompt:find("return s:upper%(%) .. \"!\""), "the moved reference sent the wrong lines")
+assert(
+  prompt:find("Reference: fixtures/greeter%.lua %(lines 5%-7%)"),
+  "the reference did not follow the edit:\n" .. prompt
+)
+assert(prompt:find('return s:upper%(%) .. "!"'), "the moved reference sent the wrong lines")
 ui.hide() -- again: :edit! cannot run with the float focused
 vim.cmd("silent! edit!") -- drop the scratch edit
 
@@ -564,16 +607,25 @@ ui.close()
 vim.cmd.edit(SP .. "/fixtures/greeter.lua")
 vim.bo.filetype = "lua"
 vim.api.nvim_win_set_cursor(0, { 8, 0 })
-vim.cmd("AskAdd")                      -- mark the function we are about to ask about
-vim.cmd("3,5AskAdd")                   -- and one we are not
+vim.cmd("AskAdd") -- mark the function we are about to ask about
+vim.cmd("3,5AskAdd") -- and one we are not
 assert(refs.count() == 2, "expected both marks")
 
 run(function() vim.cmd("Ask what does this do?") end, "refs: subject overlap")
 local dup = read_argv()[2]
 local _, references_sent = dup:gsub("Reference:", "")
-assert(references_sent == 1, "expected 1 reference block, got " .. references_sent .. ":\n" .. dup)
-assert(dup:find("Reference: fixtures/greeter%.lua %(lines 3%-5%)"), "the unrelated mark was dropped")
-assert(not dup:find("Reference: fixtures/greeter%.lua %(lines 7%-11%)"), "the subject was sent twice")
+assert(
+  references_sent == 1,
+  "expected 1 reference block, got " .. references_sent .. ":\n" .. dup
+)
+assert(
+  dup:find("Reference: fixtures/greeter%.lua %(lines 3%-5%)"),
+  "the unrelated mark was dropped"
+)
+assert(
+  not dup:find("Reference: fixtures/greeter%.lua %(lines 7%-11%)"),
+  "the subject was sent twice"
+)
 local _, subjects = dup:gsub("File:", "")
 assert(subjects == 1, "expected exactly one subject block")
 refs.clear()
@@ -589,7 +641,10 @@ vim.api.nvim_win_set_cursor(0, { 8, 0 })
 run(function() vim.cmd("Ask") end, "prompt: no references")
 local bare = read_argv()
 local sp = bare[vim.fn.index(bare, "--append-system-prompt") + 2]
-assert(not sp:find("Reference blocks"), "the reference instructions leaked into a plain question")
+assert(
+  not sp:find("Reference blocks"),
+  "the reference instructions leaked into a plain question"
+)
 assert(bare[2]:match("Explain what this does and why%.$"), "wrong default question")
 
 ui.hide() -- back to the code buffer; :AskAdd refuses to run from the answer window
@@ -600,11 +655,18 @@ end, "prompt: with references")
 local with = read_argv()
 sp = with[vim.fn.index(with, "--append-system-prompt") + 2]
 assert(sp:find("Reference blocks"), "references were sent without instructions for them")
-assert(sp:find("never stop and wait to be asked to continue"), "no instruction to answer in one reply")
-assert(with[2]:match("how each attached reference relates to it%.$"),
-  "the default question ignored the references; tail was:\n" .. with[2]:sub(-90))
-assert(with[2]:find("Attached for this question, 1 reference from elsewhere"),
-  "no lead-in introducing the references:\n" .. with[2])
+assert(
+  sp:find("never stop and wait to be asked to continue"),
+  "no instruction to answer in one reply"
+)
+assert(
+  with[2]:match("how each attached reference relates to it%.$"),
+  "the default question ignored the references; tail was:\n" .. with[2]:sub(-90)
+)
+assert(
+  with[2]:find("Attached for this question, 1 reference from elsewhere"),
+  "no lead-in introducing the references:\n" .. with[2]
+)
 refs.clear()
 print("reference instructions ok")
 
@@ -615,9 +677,7 @@ local function poison_argv()
   f:write("NOTHING-WAS-SENT\0")
   f:close()
 end
-local function nothing_sent()
-  return read_argv()[1] == "NOTHING-WAS-SENT"
-end
+local function nothing_sent() return read_argv()[1] == "NOTHING-WAS-SENT" end
 
 refs.clear()
 askia.setup({ cmd = SP .. "/fake-claude", session = "question", edit_question = true })
@@ -631,8 +691,10 @@ vim.cmd("Ask")
 assert(ui.is_open(), "compose did not open a window")
 assert(nothing_sent(), ":Ask fired a request before the question was submitted")
 local draft = last_line(ui.answer_buf())
-assert(draft == "❯ Explain what this does and why.",
-  "the prompt was not pre-filled with the default: " .. draft)
+assert(
+  draft == "❯ Explain what this does and why.",
+  "the prompt was not pre-filled with the default: " .. draft
+)
 assert(vim.bo[ui.answer_buf()].modifiable, "the draft is not editable")
 
 -- editing it, then sending
@@ -640,11 +702,15 @@ done = false
 feed("A and mention the return value<CR>")
 assert(vim.wait(15000, function() return done end, 30), "the composed question never went out")
 local composed = read_argv()
-assert(composed[2]:match("Explain what this does and why%. and mention the return value$"),
-  "the edit was not sent: " .. composed[2]:sub(-70))
+assert(
+  composed[2]:match("Explain what this does and why%. and mention the return value$"),
+  "the edit was not sent: " .. composed[2]:sub(-70)
+)
 local shown = table.concat(vim.api.nvim_buf_get_lines(ui.answer_buf(), 0, -1, false), "\n")
-assert(shown:match("^> Explain what this does and why%. and mention the return value"),
-  "the composed question is missing from the transcript")
+assert(
+  shown:match("^> Explain what this does and why%. and mention the return value"),
+  "the composed question is missing from the transcript"
+)
 
 -- and the same prompt line now serves follow-ups
 done = false
@@ -683,8 +749,10 @@ ui.hide()
 vim.api.nvim_win_set_cursor(0, { 8, 0 })
 poison_argv()
 vim.cmd("Ask")
-assert(last_line(ui.answer_buf()):match("how each attached reference relates to it%.$"),
-  "the pre-filled draft ignored the references: " .. last_line(ui.answer_buf()))
+assert(
+  last_line(ui.answer_buf()):match("how each attached reference relates to it%.$"),
+  "the pre-filled draft ignored the references: " .. last_line(ui.answer_buf())
+)
 feed("q")
 refs.clear()
 askia.setup({ edit_question = false })
@@ -695,9 +763,7 @@ print("compose cancel ok")
 local readme = assert(io.open(ROOT .. "/README.md")):read("*a")
 local helpdoc = assert(io.open(ROOT .. "/doc/askia.txt")):read("*a")
 
-local function documented(name, text)
-  return text:find(name, 1, true) ~= nil
-end
+local function documented(name, text) return text:find(name, 1, true) ~= nil end
 
 local undocumented = {}
 for key, value in pairs(require("askia.config").options) do
@@ -710,21 +776,25 @@ for key, value in pairs(require("askia.config").options) do
     if #names == 0 then names = { key } end -- keymaps, empty by default
   end
   for _, name in ipairs(names) do
-    if not documented(name, readme) then
-      table.insert(undocumented, name .. " (README)")
-    end
+    if not documented(name, readme) then table.insert(undocumented, name .. " (README)") end
   end
-  if not documented(key, helpdoc) then
-    table.insert(undocumented, key .. " (:help)")
-  end
+  if not documented(key, helpdoc) then table.insert(undocumented, key .. " (:help)") end
 end
 
 assert(#undocumented == 0, "undocumented options: " .. table.concat(undocumented, ", "))
 
 -- and every command the plugin defines
 for _, cmd in ipairs({
-  "Ask", "AskAdd", "AskClear", "AskFollow", "AskCancel",
-  "AskToggle", "AskClose", "AskTerminal", "AskInfo", "AskReset",
+  "Ask",
+  "AskAdd",
+  "AskClear",
+  "AskFollow",
+  "AskCancel",
+  "AskToggle",
+  "AskClose",
+  "AskTerminal",
+  "AskInfo",
+  "AskReset",
 }) do
   assert(vim.fn.exists(":" .. cmd) == 2, cmd .. " is not defined")
   assert(documented(":" .. cmd, readme), cmd .. " is missing from the README")

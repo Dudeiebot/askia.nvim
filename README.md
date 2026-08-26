@@ -344,7 +344,11 @@ tests/run.sh
 
 Drives the plugin headlessly against `tests/fake-claude`, a stub that replays
 the event shapes `claude --output-format stream-json` actually emits. No
-network, no tokens, about a second. Formatting is `stylua`.
+network, no tokens, about a second.
+
+Formatting is `stylua lua plugin tests`, checked in CI. `tests/fixtures/` is in
+`.styluaignore` on purpose — the suite asserts on line numbers inside those
+files, so reformatting them silently breaks it.
 
 ## License
 

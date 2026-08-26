@@ -39,23 +39,17 @@ local function cancel()
   end
 end
 
-local function ttl_seconds()
-  return (config.options.session_ttl or 0) * 60
-end
+local function ttl_seconds() return (config.options.session_ttl or 0) * 60 end
 
 local function known()
-  if not sessions then
-    sessions = config.options.session_persist and store.read() or {}
-  end
+  if not sessions then sessions = config.options.session_persist and store.read() or {} end
   return sessions
 end
 
 --- Record (entry) or forget (nil) a project's session, on disk and in memory.
 local function keep(root, entry)
   known()[root] = entry
-  if config.options.session_persist then
-    sessions = store.update(root, entry, ttl_seconds())
-  end
+  if config.options.session_persist then sessions = store.update(root, entry, ttl_seconds()) end
 end
 
 --- The directory a session is keyed on.
@@ -74,9 +68,7 @@ function M.project_root(buf)
   local nearest
   for _, marker in ipairs(PROJECT_MARKERS) do
     local found_ok, found = pcall(vim.fs.root, buf, marker)
-    if found_ok and found and (not nearest or #found > #nearest) then
-      nearest = found
-    end
+    if found_ok and found and (not nearest or #found > #nearest) then nearest = found end
   end
   if nearest then return nearest end
 
@@ -95,9 +87,7 @@ local project_root = M.project_root
 --- instead of the project the question came from.
 local function active_root()
   local buf = vim.api.nvim_get_current_buf()
-  if buf == ui.answer_buf() and current.root then
-    return current.root
-  end
+  if buf == ui.answer_buf() and current.root then return current.root end
   return project_root(buf)
 end
 
@@ -200,9 +190,15 @@ function M.add_reference(opts)
 
   local item = refs.add(buf, l1, l2)
   local total = refs.count()
-  vim.notify(("askia: attached %s (%d-%d) -- %d reference%s"):format(
-    item.path, l1, l2, total, total == 1 and "" or "s"
-  ))
+  vim.notify(
+    ("askia: attached %s (%d-%d) -- %d reference%s"):format(
+      item.path,
+      l1,
+      l2,
+      total,
+      total == 1 and "" or "s"
+    )
+  )
 end
 
 function M.clear_references()
@@ -311,9 +307,7 @@ end
 ---@return string[]
 function M.terminal_command(id)
   local cmd = { config.options.cmd, "--resume", id }
-  if config.options.model then
-    vim.list_extend(cmd, { "--model", config.options.model })
-  end
+  if config.options.model then vim.list_extend(cmd, { "--model", config.options.model }) end
   return cmd
 end
 
@@ -398,19 +392,25 @@ function M.info()
   if entry then
     local age = store.now() - entry.used
     table.insert(lines, ("  session   %s"):format(entry.id))
-    table.insert(lines, ("  age       %s%s"):format(
-      ago(age),
-      (ttl > 0 and age > ttl) and "   (expired, next :Ask starts cold)" or ""
-    ))
+    table.insert(
+      lines,
+      ("  age       %s%s"):format(
+        ago(age),
+        (ttl > 0 and age > ttl) and "   (expired, next :Ask starts cold)" or ""
+      )
+    )
   else
     table.insert(lines, "  session   none yet -- the next :Ask starts cold")
   end
 
-  table.insert(lines, ("  mode      %s  ·  ttl %s  ·  %s"):format(
-    config.options.session,
-    ttl > 0 and (tostring(config.options.session_ttl) .. "m") or "none",
-    config.options.session_persist and "persisted" or "memory only"
-  ))
+  table.insert(
+    lines,
+    ("  mode      %s  ·  ttl %s  ·  %s"):format(
+      config.options.session,
+      ttl > 0 and (tostring(config.options.session_ttl) .. "m") or "none",
+      config.options.session_persist and "persisted" or "memory only"
+    )
+  )
 
   if refs.count() > 0 then
     table.insert(lines, ("  refs      %d attached"):format(refs.count()))
@@ -422,9 +422,14 @@ function M.info()
   if config.options.session_persist then
     local stat = store.stat()
     table.insert(lines, ("  store     %s"):format(vim.fn.fnamemodify(store.path(), ":~")))
-    table.insert(lines, ("            %d project%s, %d bytes"):format(
-      stat.projects, stat.projects == 1 and "" or "s", stat.bytes
-    ))
+    table.insert(
+      lines,
+      ("            %d project%s, %d bytes"):format(
+        stat.projects,
+        stat.projects == 1 and "" or "s",
+        stat.bytes
+      )
+    )
   end
 
   vim.notify(table.concat(lines, "\n"), vim.log.levels.INFO)

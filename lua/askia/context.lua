@@ -65,26 +65,33 @@ function M.build_prompt(bufnr, l1, l2, question, references)
     local duplicate = ref.path == where and ref.l1 >= l1 and ref.l2 <= l2
     if not duplicate then
       attached = attached + 1
-      table.insert(blocks, block(
-        ("Reference: %s (lines %d-%d)"):format(ref.path, ref.l1, ref.l2),
-        ref.text,
-        ref.filetype
-      ))
+      table.insert(
+        blocks,
+        block(
+          ("Reference: %s (lines %d-%d)"):format(ref.path, ref.l1, ref.l2),
+          ref.text,
+          ref.filetype
+        )
+      )
     end
   end
 
   if attached > 0 then
-    table.insert(parts, ("Attached for this question, %d reference%s from elsewhere in the codebase:")
-      :format(attached, attached == 1 and "" or "s"))
+    table.insert(
+      parts,
+      ("Attached for this question, %d reference%s from elsewhere in the codebase:"):format(
+        attached,
+        attached == 1 and "" or "s"
+      )
+    )
     table.insert(parts, "")
     vim.list_extend(parts, blocks)
   end
 
-  table.insert(parts, block(
-    ("File: %s (lines %d-%d)"):format(where, l1, l2),
-    code,
-    vim.bo[bufnr].filetype
-  ))
+  table.insert(
+    parts,
+    block(("File: %s (lines %d-%d)"):format(where, l1, l2), code, vim.bo[bufnr].filetype)
+  )
   table.insert(parts, question)
 
   local label = ("%s:%d-%d"):format(vim.fn.fnamemodify(where, ":t"), l1, l2)

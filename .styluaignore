@@ -1,0 +1,3 @@
+# Test fixtures are data, not source: their line numbers are asserted on, and
+# reformatting them silently shifts every range the suite checks.
+tests/fixtures/

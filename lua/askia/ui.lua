@@ -10,38 +10,32 @@ local augroup = vim.api.nvim_create_augroup("askia", { clear = true })
 local state = {
   win = nil,
   buf = nil,
-  geometry = nil,   -- the table handed to nvim_win_set_config
-  size = {},        -- width/height the user chose by hand; nil means "follow config"
-  max_height = 0,   -- ceiling for auto-fit
+  geometry = nil, -- the table handed to nvim_win_set_config
+  size = {}, -- width/height the user chose by hand; nil means "follow config"
+  max_height = 0, -- ceiling for auto-fit
   maximized = false,
   pre_max = nil,
-  blocks = {},      -- { kind = "text"|"tool"|"ask", text = string }
+  blocks = {}, -- { kind = "text"|"tool"|"ask", text = string }
   label = "",
-  status = nil,     -- non-nil while a request is in flight
+  status = nil, -- non-nil while a request is in flight
   frame = 1,
   dirty = false,
   timer = nil,
-  handlers = {},    -- { on_follow, on_cancel, on_quit, on_terminal }
-  cursor = nil,     -- restored when the window is reopened
-  prompt = nil,     -- the follow-up being typed, as a string; nil when not asking
+  handlers = {}, -- { on_follow, on_cancel, on_quit, on_terminal }
+  cursor = nil, -- restored when the window is reopened
+  prompt = nil, -- the follow-up being typed, as a string; nil when not asking
 }
 
 local open_window -- defined below; declared here so the resize helpers can reach it
 
-local function is_open()
-  return state.win and vim.api.nvim_win_is_valid(state.win)
-end
+local function is_open() return state.win and vim.api.nvim_win_is_valid(state.win) end
 
-local function has_buf()
-  return state.buf and vim.api.nvim_buf_is_valid(state.buf)
-end
+local function has_buf() return state.buf and vim.api.nvim_buf_is_valid(state.buf) end
 
 -- ---------------------------------------------------------------- geometry --
 
 --- Space the float is allowed to occupy, leaving the command line alone.
-local function editor_size()
-  return vim.o.columns, vim.o.lines - vim.o.cmdheight - 1
-end
+local function editor_size() return vim.o.columns, vim.o.lines - vim.o.cmdheight - 1 end
 
 --- The size a new window opens at: what the user last chose by hand, else the
 --- configured fractions, always inside the editor.
@@ -55,9 +49,7 @@ local function wanted_size()
 end
 
 local function footer_text()
-  if state.prompt ~= nil then
-    return " <CR> send  ·  <Esc> back  ·  q discard "
-  end
+  if state.prompt ~= nil then return " <CR> send  ·  <Esc> back  ·  q discard " end
   if state.status then
     return (" %s %s  ·  <C-c> cancel "):format(SPINNER[state.frame], state.status)
   end
@@ -72,9 +64,7 @@ local function apply_win_config()
   if cfg.border and cfg.border ~= "none" then
     local text = footer_text()
     local room = cfg.width - 2
-    if vim.fn.strchars(text) > room then
-      text = vim.fn.strcharpart(text, 0, room)
-    end
+    if vim.fn.strchars(text) > room then text = vim.fn.strcharpart(text, 0, room) end
     cfg.footer = { { text, state.status and "DiagnosticInfo" or "Comment" } }
     cfg.footer_pos = "right"
   end
@@ -90,10 +80,8 @@ local function fit_height()
   local ok, measured = pcall(vim.api.nvim_win_text_height, state.win, {})
   if not ok then return end
 
-  local height = math.max(
-    config.options.window.min_height,
-    math.min(measured.all, state.max_height)
-  )
+  local height =
+    math.max(config.options.window.min_height, math.min(measured.all, state.max_height))
   if height ~= state.geometry.height then
     state.geometry.height = height
     apply_win_config()
@@ -287,9 +275,7 @@ end
 function M.close()
   M.hide()
   stop_timer()
-  if has_buf() then
-    vim.api.nvim_buf_delete(state.buf, { force = true })
-  end
+  if has_buf() then vim.api.nvim_buf_delete(state.buf, { force = true }) end
   state.buf = nil
   state.blocks = {}
   state.status = nil
@@ -304,9 +290,7 @@ function M.toggle()
   if not has_buf() then return false end
 
   state.win = open_window(state.buf)
-  if state.cursor then
-    pcall(vim.api.nvim_win_set_cursor, state.win, state.cursor)
-  end
+  if state.cursor then pcall(vim.api.nvim_win_set_cursor, state.win, state.cursor) end
   fit_height()
   apply_win_config()
   return true
@@ -363,9 +347,7 @@ local function submit_prompt()
   if vim.fn.mode():find("i") then vim.cmd("stopinsert") end
   render()
   apply_win_config()
-  if question ~= "" and state.handlers.on_follow then
-    state.handlers.on_follow(question)
-  end
+  if question ~= "" and state.handlers.on_follow then state.handlers.on_follow(question) end
 end
 
 local KEYS = {
@@ -464,9 +446,10 @@ function open_window(buf)
     width = width,
     -- Auto-fit starts small and grows; the row below is computed for the full
     -- height either way, so the top edge never moves as the answer arrives.
-    height = win_cfg.auto_height and not state.size.height
-        and math.max(win_cfg.min_height, math.min(3, height))
-      or height,
+    height = win_cfg.auto_height and not state.size.height and math.max(
+      win_cfg.min_height,
+      math.min(3, height)
+    ) or height,
     row = math.max(0, math.floor((rows - height) / 2)),
     col = math.floor((cols - width) / 2),
     border = win_cfg.border,
@@ -548,22 +531,16 @@ end
 ---@param err string?
 function M.finish(err)
   state.status = nil
-  if err then
-    table.insert(state.blocks, { kind = "text", text = "\n\n**error:** " .. err })
-  end
+  if err then table.insert(state.blocks, { kind = "text", text = "\n\n**error:** " .. err }) end
   render()
   apply_win_config()
   stop_timer()
 end
 
-function M.is_open()
-  return is_open()
-end
+function M.is_open() return is_open() end
 
 --- The scratch buffer answers are rendered into, if any.
-function M.answer_buf()
-  return state.buf
-end
+function M.answer_buf() return state.buf end
 
 --- Current window size, for tests and :AskInfo-ish callers.
 function M.dimensions()

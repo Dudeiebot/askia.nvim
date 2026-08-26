@@ -31,8 +31,10 @@ function M.run(opts, cb)
 
   local args = {
     cfg.cmd,
-    "-p", opts.prompt,
-    "--output-format", "stream-json",
+    "-p",
+    opts.prompt,
+    "--output-format",
+    "stream-json",
     "--include-partial-messages",
     "--verbose",
   }
@@ -83,9 +85,7 @@ function M.run(opts, cb)
       pending = pending:sub(nl + 1)
       if line ~= "" then
         local ok, ev = pcall(vim.json.decode, line)
-        if ok and type(ev) == "table" then
-          vim.schedule(function() handle(ev) end)
-        end
+        if ok and type(ev) == "table" then vim.schedule(function() handle(ev) end) end
       end
     end
   end
