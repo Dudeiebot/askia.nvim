@@ -1,11 +1,11 @@
 #!/bin/bash
 # Records argv, then replays the real stream-json event shapes.
-printf '%s\0' "$@" > "${ASKING_ARGV_LOG}"
+printf '%s\0' "$@" > "${ASKIA_ARGV_LOG}"
 
 # Simulate a session id that claude no longer knows about: fail the first
 # --resume we are handed, succeed on the cold retry.
-if [[ -n "${ASKING_FAIL_RESUME:-}" && "$*" == *--resume* && ! -f "$ASKING_FAIL_RESUME" ]]; then
-  touch "$ASKING_FAIL_RESUME"
+if [[ -n "${ASKIA_FAIL_RESUME:-}" && "$*" == *--resume* && ! -f "$ASKIA_FAIL_RESUME" ]]; then
+  touch "$ASKIA_FAIL_RESUME"
   echo "No conversation found with session ID" >&2
   exit 1
 fi
