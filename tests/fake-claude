@@ -1,0 +1,22 @@
+#!/bin/bash
+# Records argv, then replays the real stream-json event shapes.
+printf '%s\0' "$@" > "${ASKING_ARGV_LOG}"
+
+# Simulate a session id that claude no longer knows about: fail the first
+# --resume we are handed, succeed on the cold retry.
+if [[ -n "${ASKING_FAIL_RESUME:-}" && "$*" == *--resume* && ! -f "$ASKING_FAIL_RESUME" ]]; then
+  touch "$ASKING_FAIL_RESUME"
+  echo "No conversation found with session ID" >&2
+  exit 1
+fi
+sid="11111111-2222-3333-4444-555555555555"
+say() { echo "$1"; sleep 0.05; }
+say "{\"type\":\"system\",\"subtype\":\"init\",\"session_id\":\"$sid\",\"tools\":[\"Read\"]}"
+say "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_start\",\"index\":0,\"content_block\":{\"type\":\"text\",\"text\":\"\"}},\"session_id\":\"$sid\"}"
+for w in "It " "takes " "\`self\` " "by " "value.\n\nHere is a fence: "; do
+  say "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"$w\"}},\"session_id\":\"$sid\"}"
+done
+say "{\"type\":\"assistant\",\"session_id\":\"$sid\",\"message\":{\"content\":[{\"type\":\"tool_use\",\"name\":\"Grep\",\"input\":{\"pattern\":\"M.greet\",\"path\":\"src\"}}]}}"
+say "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"thinking_delta\",\"thinking\":\"SHOULD NOT APPEAR\"}},\"session_id\":\"$sid\"}"
+say "{\"type\":\"stream_event\",\"event\":{\"type\":\"content_block_delta\",\"index\":0,\"delta\":{\"type\":\"text_delta\",\"text\":\"done.\"}},\"session_id\":\"$sid\"}"
+say "{\"type\":\"result\",\"is_error\":false,\"session_id\":\"$sid\"}"

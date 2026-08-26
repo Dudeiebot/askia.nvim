@@ -1,10 +1,10 @@
-local config = require("asking.config")
+local config = require("askia.config")
 
 local M = {}
 
 function M.check()
   local health = vim.health
-  health.start("asking")
+  health.start("askia")
 
   local cmd = config.options.cmd
   if vim.fn.executable(cmd) == 1 then

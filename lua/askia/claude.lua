@@ -1,4 +1,4 @@
-local config = require("asking.config")
+local config = require("askia.config")
 
 local M = {}
 
@@ -18,7 +18,7 @@ local function summarize(input)
   return ""
 end
 
----@param opts { prompt: string, resume: string?, cwd: string? }
+---@param opts { prompt: string, resume: string?, cwd: string?, system_prompt: string? }
 ---@param cb { on_text: fun(chunk: string), on_tool: fun(line: string), on_session: fun(id: string), on_exit: fun(err: string?) }
 ---@return vim.SystemObj?
 function M.run(opts, cb)
@@ -42,8 +42,9 @@ function M.run(opts, cb)
     vim.list_extend(args, { "--allowedTools", table.concat(cfg.allowed_tools, ",") })
   end
   if cfg.model then vim.list_extend(args, { "--model", cfg.model }) end
-  if cfg.system_prompt and cfg.system_prompt ~= "" then
-    vim.list_extend(args, { "--append-system-prompt", cfg.system_prompt })
+  local system = opts.system_prompt or cfg.system_prompt
+  if system and system ~= "" then
+    vim.list_extend(args, { "--append-system-prompt", system })
   end
   if opts.resume then vim.list_extend(args, { "--resume", opts.resume }) end
 

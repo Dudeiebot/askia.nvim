@@ -1,0 +1,372 @@
+*askia.txt*    Ask Claude about the code you're looking at
+
+==============================================================================
+CONTENTS                                                     *askia-contents*
+
+  1. Introduction ......................... |askia-introduction|
+  2. Requirements ......................... |askia-requirements|
+  3. Setup ................................ |askia-setup|
+  4. Commands ............................. |askia-commands|
+  5. Mappings ............................. |askia-mappings|
+  6. Configuration ........................ |askia-configuration|
+  7. How the code is chosen ............... |askia-selection|
+  7a. References .......................... |askia-references|
+  8. Follow-ups ........................... |askia-follow-ups|
+  9. Sessions ............................. |askia-sessions|
+ 10. Limits .............................. |askia-limits|
+ 11. Health .............................. |askia-health|
+
+==============================================================================
+1. INTRODUCTION                                          *askia-introduction*
+
+askia sends a snippet of the buffer you are in to Claude Code and streams
+the answer back into a floating window.
+
+Claude is given read-only tools, so it can grep for callers or follow a type
+definition to answer properly, while being unable to edit anything. Answers are
+therefore informed by the rest of the repository, not just the lines you sent.
+
+==============================================================================
+2. REQUIREMENTS                                          *askia-requirements*
+
+  - Neovim 0.10 or newer (`vim.system`, `vim.uv`)
+  - Claude Code on $PATH: https://claude.com/claude-code
+  - A treesitter parser for the language, if you want to use |:Ask| without a
+    selection. Without one, select a range first.
+
+==============================================================================
+3. SETUP                                                        *askia-setup*
+
+Calling setup() is optional; the commands work without it. Call it to change
+defaults or to have a mapping created for you. >lua
+
+    require("askia").setup({
+      model = "sonnet",
+      keymaps = { ask = "<leader>aa" },
+    })
+<
+==============================================================================
+4. COMMANDS                                                  *askia-commands*
+
+                                                                        *:Ask*
+:[range]Ask[!] [question]
+    Ask about [range], or about the function under the cursor when no range is
+    given. With no [question], |askia-config-default_question| is used.
+    With [!], the question is asked in a fresh session, leaving the project's
+    session (see |askia-sessions|) untouched. With |askia-config-edit_question|
+    set and no [question] given, the prompt opens pre-filled with the default
+    for editing instead of sending it straight away. >
+
+      :Ask
+      :Ask why is this taking self by value?
+      :'<,'>Ask what breaks if this is nil?
+      :%Ask summarise this module
+<
+                                                                     *:AskAdd*
+:[range]AskAdd
+    Attach [range], or the function under the cursor, to the next question as a
+    reference. See |askia-references|.
+
+                                                                   *:AskClear*
+:AskClear
+    Drop every attached reference.
+
+                                                                  *:AskFollow*
+:AskFollow {question}
+    Continue the conversation in the open answer window. Only the new question
+    is sent; Claude still has the snippet from the first turn.
+
+                                                                  *:AskCancel*
+:AskCancel
+    Cancel the request in flight.
+
+                                                                  *:AskToggle*
+:AskToggle
+    Put the answer window away, or bring the last one back with its
+    conversation intact. An answer still streaming keeps streaming while
+    hidden, and you are notified when it lands.
+
+    A new |:Ask| replaces that window whether it is showing or hidden: each
+    question gets a clean window. The conversation is unaffected -- it carries
+    on in the session, so Claude still has everything asked before. See
+    |askia-sessions|.
+
+                                                                   *:AskClose*
+:AskClose
+    Close the answer window and discard the answer, stopping anything still
+    running. |:AskToggle| has nothing to bring back afterwards.
+
+                                                                *:AskTerminal*
+:AskTerminal
+    Hand this project's conversation to an interactive Claude session, by
+    running `claude --resume` on the id |:Ask| has been using. Everything
+    Claude already learned about the code carries over. Anything in flight is
+    cancelled first -- one transcript cannot have two writers -- and the answer
+    window is hidden rather than destroyed, so |:AskToggle| still brings it
+    back. Opens where |askia-config-terminal| says.
+
+                                                                    *:AskInfo*
+:AskInfo
+    Report this project's session: its root, the session id, how long since it
+    was last used, the current mode, and the store's path and size. Works from
+    inside the answer window too.
+
+                                                                   *:AskReset*
+:AskReset
+    Forget the current project's session, so the next |:Ask| starts cold.
+
+==============================================================================
+5. MAPPINGS                                                  *askia-mappings*
+
+No global mapping is created unless you ask for one via
+|askia-config-keymaps|.
+
+Inside the answer window:
+
+  <CR>      open the follow-up prompt at the bottom of the window; <CR> again
+            sends it. <Esc> steps back to normal mode keeping the draft, and q
+            from there discards it.
+  y         yank the answer
+  t         continue in an interactive claude session (|:AskTerminal|)
+  q, <Esc>  hide the window (|:AskToggle| brings it back)
+  Q         quit: stop the request and discard the answer
+  + -       taller / shorter
+  > <       wider / narrower
+  M         maximize (toggle)
+  =         back to the configured size
+  <C-c>     cancel the request in flight
+  ?         show this list
+
+A size chosen by hand sticks for later answers until you press =.
+
+The window has 'winfixbuf' set, so jumps cannot pull another file into it.
+<Tab> is <C-i>, a jumplist jump, and would otherwise replace the answer with
+whatever you last jumped from.
+
+==============================================================================
+6. CONFIGURATION                                        *askia-configuration*
+
+Defaults: >lua
+
+    {
+      cmd = "claude",
+      model = nil,
+      allowed_tools = { "Read", "Grep", "Glob" },
+      edit_question = false,
+      default_question = "Explain what this does and why.",
+      default_question_with_references = "...",
+      system_prompt = "...",
+      reference_prompt = "...",
+      timeout = 180000,
+      session = "project",
+      session_ttl = 30,
+      session_persist = true,
+      terminal = { open = "tab" },
+      window = {
+        width = 0.55,
+        height = 0.6,
+        auto_height = false,
+        min_height = 3,
+        border = "rounded",
+        show_tools = true,
+      },
+      keymaps = {},
+    }
+<
+cmd                                                     *askia-config-cmd*
+    The Claude Code executable. Default: "claude".
+
+model                                                   *askia-config-model*
+    Model alias or name passed to --model. nil keeps whatever `claude` is
+    already configured to use. "sonnet" is noticeably faster for one-shot
+    questions. Default: nil.
+
+allowed_tools                                   *askia-config-allowed_tools*
+    Tools Claude may use, passed to --allowedTools. Keep these read-only unless
+    you want it touching your working tree.
+    Default: { "Read", "Grep", "Glob" }.
+
+edit_question                                   *askia-config-edit_question*
+    With no [question] given, |:Ask| opens the prompt line pre-filled with the
+    default question so it can be edited or accepted, rather than sending it
+    immediately. <CR> sends, q backs out without sending, and the footer shows
+    what is about to be asked about. A typed question always goes straight out.
+    Default: false.
+
+default_question                             *askia-config-default_question*
+    Used when |:Ask| is given no question.
+    Default: "Explain what this does and why.".
+
+default_question_with_references     *askia-config-default_question_with_references*
+    Used instead of |askia-config-default_question| when references are
+    attached, where "this" alone would be ambiguous. See |askia-references|.
+
+system_prompt                                   *askia-config-system_prompt*
+    Appended to Claude's system prompt via --append-system-prompt. Use it to
+    change the tone or length of answers.
+
+reference_prompt                             *askia-config-reference_prompt*
+    Appended to |askia-config-system_prompt|, but only when references are
+    attached. It tells Claude the Reference blocks are part of the question
+    rather than background, to cover all of them in one reply, and not to
+    re-read files it has already been given.
+
+timeout                                               *askia-config-timeout*
+    Milliseconds before the request is killed. Default: 180000.
+
+window                                                 *askia-config-window*
+    width and height are fractions of the editor, and the window opens at that
+    size. With auto_height on, height instead becomes a ceiling the window
+    grows into as the answer arrives, never shrinking below min_height; the top
+    edge stays put so streaming text does not make the window jump. border is
+    any value |nvim_open_win()| accepts.
+    show_tools toggles the dimmed lines that appear as Claude reaches for
+    context.
+
+    The window is also resized by hand from inside it; see |askia-mappings|.
+
+session                                               *askia-config-session*
+    "project" reuses one session per project root; "question" starts every
+    |:Ask| cold. See |askia-sessions|. Default: "project".
+
+session_ttl                                       *askia-config-session_ttl*
+    Minutes of inactivity after which a project's session is abandoned. 0
+    disables the expiry. Default: 30.
+
+session_persist                               *askia-config-session_persist*
+    Remember sessions across Neovim restarts by writing a small json file under
+    stdpath("state"). See |askia-sessions|. false keeps them in memory, dying
+    with the process. Default: true.
+
+terminal                                             *askia-config-terminal*
+    Where |:AskTerminal| puts the interactive session: "tab" (default),
+    "split", "vsplit" or "float".
+
+keymaps                                               *askia-config-keymaps*
+    { ask = "<leader>aa", toggle = "<leader>at" } creates those mappings; ask
+    is mapped in normal and visual mode, toggle in normal mode. Empty or false
+    creates nothing. Default: {}.
+
+==============================================================================
+7. HOW THE CODE IS CHOSEN                                   *askia-selection*
+
+An explicit range always wins. Without one, askia walks up the syntax
+tree from the cursor until it reaches a node whose type contains "function",
+"method", or "class". That covers Rust `function_item`, Go
+`function_declaration`, Python `function_definition`, TypeScript
+`method_definition` and others without special-casing any language.
+
+The prompt is the file path, the line range, and the code in a fenced block.
+The fence widens itself if the snippet contains backticks of its own.
+
+==============================================================================
+7a. REFERENCES                                               *askia-references*
+
+Questions are often about how one function relates to another somewhere else.
+|:AskAdd| attaches the function under the cursor, or a visual range, to the next
+question; keep adding across files and then ask. >
+
+    in greet.c      :3,6AskAdd
+    in config.lua   :AskAdd
+    in greeter.lua  :Ask do these agree about what they return?
+<
+Attached blocks are sent ahead of the code being asked about, each labelled with
+its file and line range, so Claude has them without having to search.
+
+A reference that falls inside the code being asked about is dropped rather than
+sent twice, so marking a function and then asking from inside it simply makes it
+the subject.
+
+References stay attached until |:AskClear|, so one set can serve several
+questions, and the answer window's footer shows how many are in play. Ranges are
+tracked with extmarks: edit a file after marking something and the same lines
+are still sent, not the same line numbers. If the buffer is gone by the time you
+ask, the text captured at |:AskAdd| time is used instead. |:AskInfo| lists what
+is currently attached.
+
+==============================================================================
+8. FOLLOW-UPS                                               *askia-follow-ups*
+
+<CR> in the answer window opens a prompt line inside the window itself, rather
+than on the command line, and starts insert mode. <CR> again sends it. An
+answer still streaming keeps arriving above the prompt while you type.
+
+The conversation is resumed rather than restarted, so only the new question is
+sent; Claude still has the snippet from the first turn. |:AskFollow| does the
+same thing in one command.
+
+==============================================================================
+9. SESSIONS                                                   *askia-sessions*
+
+With |askia-config-session| set to "project" (the default), one Claude session
+is kept per project root, and every |:Ask| in that project resumes it, so Claude
+keeps what it has already learned about the codebase and later questions need
+fewer tool calls.
+
+                                                                  *askia-root*
+The root is resolved in three steps, first match winning:
+
+  1. A checkout: the nearest .git, .hg or .svn above the file. One repository
+     is one session, whatever manifests live inside it.
+
+  2. The nearest manifest: package.json, Cargo.toml, go.mod, pyproject.toml,
+     pom.xml, build.gradle, Gemfile, composer.json or Makefile. Nearest, not
+     first in that list -- a Rust crate inside a JavaScript monorepo keys on
+     the crate, not on the monorepo.
+
+  3. The file's own directory, for a loose file with nothing project-shaped
+     above it -- rather than the current directory, which may belong to an
+     unrelated project.
+
+A buffer with no file name has no path to walk up from, so resolution starts at
+the current directory instead.
+
+The trade is that a resumed turn re-sends the accumulated transcript: a long
+session costs more per question than a fresh one, and can anchor on code you
+have moved past. |askia-config-session_ttl| bounds that by abandoning a
+session after 30 minutes of inactivity.
+
+Escape hatches: |:Ask| with a bang for one cold question, |:AskReset| to forget
+the session, or session = "question" to never reuse one.
+
+                                                          *askia-session-store*
+Only the ids belong to askia; the conversations themselves are Claude Code's,
+under ~/.claude/projects. The project-to-id map is written to >
+
+    stdpath("state")/askia/sessions.json
+<
+so a session survives closing Neovim. It costs roughly 100 bytes per project,
+and is pruned on every write -- expired entries dropped, at most 50 projects
+kept, most recently used first -- so it stays a few kilobytes however long it
+is used. Each write is made to a temporary file and renamed into place, after
+merging with what is already there, so two Neovim instances cannot clobber each
+other's entries or leave a half-written file behind.
+
+|askia-config-session_persist| turns this off, keeping the map in memory where
+it dies with the process. |:AskInfo| reports what is currently remembered.
+
+A stored id that Claude no longer recognises is dropped and the question
+retried from cold.
+
+==============================================================================
+10. LIMITS                                                      *askia-limits*
+
+                                                              *askia-escalate*
+
+A cold call takes roughly ten to fifteen seconds before the first token, and
+streaming only hides so much of that. This is the right shape for "explain
+this" and the wrong shape for a tight back-and-forth.
+
+For that there is |:AskTerminal|, which continues the very same conversation in
+an interactive session rather than making you start one from scratch.
+
+==============================================================================
+11. HEALTH                                                      *askia-health*
+
+>
+    :checkhealth askia
+<
+Reports whether the executable was found, its version, the Neovim version, and
+which treesitter parsers are installed.
+
+vim:tw=78:ts=8:ft=help:norl:

@@ -42,24 +42,57 @@ local function fence_for(code)
   return string.rep("`", longest + 1)
 end
 
+--- One labelled, fenced block.
+local function block(label, code, filetype)
+  local fence = fence_for(code)
+  return table.concat({ label, "", fence .. (filetype or ""), code, fence, "" }, "\n")
+end
+
+---@param references { path: string, l1: integer, l2: integer, filetype: string, text: string }[]?
 ---@return string prompt, string label
-function M.build_prompt(bufnr, l1, l2, question)
+function M.build_prompt(bufnr, l1, l2, question, references)
   local code = table.concat(vim.api.nvim_buf_get_lines(bufnr, l1 - 1, l2, false), "\n")
   local name = vim.api.nvim_buf_get_name(bufnr)
   local where = name ~= "" and vim.fn.fnamemodify(name, ":.") or "[unnamed buffer]"
-  local fence = fence_for(code)
 
-  local prompt = table.concat({
+  local parts, attached = {}, 0
+  -- References first, so the code actually being asked about sits closest to
+  -- the question.
+  local blocks = {}
+  for _, ref in ipairs(references or {}) do
+    -- Marking a function and then asking about it would otherwise send the
+    -- same lines twice, once as a reference and once as the subject.
+    local duplicate = ref.path == where and ref.l1 >= l1 and ref.l2 <= l2
+    if not duplicate then
+      attached = attached + 1
+      table.insert(blocks, block(
+        ("Reference: %s (lines %d-%d)"):format(ref.path, ref.l1, ref.l2),
+        ref.text,
+        ref.filetype
+      ))
+    end
+  end
+
+  if attached > 0 then
+    table.insert(parts, ("Attached for this question, %d reference%s from elsewhere in the codebase:")
+      :format(attached, attached == 1 and "" or "s"))
+    table.insert(parts, "")
+    vim.list_extend(parts, blocks)
+  end
+
+  table.insert(parts, block(
     ("File: %s (lines %d-%d)"):format(where, l1, l2),
-    "",
-    fence .. vim.bo[bufnr].filetype,
     code,
-    fence,
-    "",
-    question,
-  }, "\n")
+    vim.bo[bufnr].filetype
+  ))
+  table.insert(parts, question)
 
-  return prompt, ("%s:%d-%d"):format(vim.fn.fnamemodify(where, ":t"), l1, l2)
+  local label = ("%s:%d-%d"):format(vim.fn.fnamemodify(where, ":t"), l1, l2)
+  if attached > 0 then
+    label = ("%s · %d ref%s"):format(label, attached, attached == 1 and "" or "s")
+  end
+
+  return table.concat(parts, "\n"), label
 end
 
 return M
