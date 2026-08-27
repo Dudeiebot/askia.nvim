@@ -1,12 +1,19 @@
-# askia
+# askia.nvim
 
-[![test](https://github.com/Dudeiebot/askia/actions/workflows/test.yml/badge.svg)](https://github.com/Dudeiebot/askia/actions/workflows/test.yml)
+[![test](https://github.com/Dudeiebot/askia.nvim/actions/workflows/test.yml/badge.svg)](https://github.com/Dudeiebot/askia.nvim/actions/workflows/test.yml)
 
-Ask [Claude Code](https://claude.com/claude-code) about the code you're looking
-at, without leaving Neovim.
+**Ask [Claude Code](https://claude.com/claude-code) about your code, from inside
+Neovim — without letting it change a line.**
 
-Select some code — or just park the cursor inside a function — and run `:Ask`.
-The answer streams into a floating window.
+askia hands Claude read-only tools. It can grep for callers and follow a type
+definition to answer you properly, but it cannot write to your working tree. No
+diff to review, no edit to undo, no agent loose in your repo. And you watch
+every file it opens.
+
+![askia in action](doc/demo_askia.gif)
+
+Park the cursor inside a function and run `:Ask`. The answer streams into a
+floating window.
 
 ```
 :Ask                                       the function under the cursor
@@ -14,12 +21,9 @@ The answer streams into a floating window.
 :'<,'>Ask what breaks if this is nil?      ... about a visual selection
 :%Ask summarise this module                ... about the whole file
 :AskToggle                                 put it away / bring it back
-:AskAdd                                    attach this function to the next question
 ```
 
-Claude gets read-only tools, so it can grep for callers or follow a type
-definition to answer properly — while being unable to touch your working tree.
-You see it happen:
+You see the tools it reaches for:
 
 ```
 > what does shout() do to the output, and where is it defined?
@@ -30,6 +34,39 @@ You see it happen:
 `shout(out)` turns "hello <name>" into "HELLO <NAME>!", which is what gets
 printed — but note `out` itself is what's returned from `greet`.
 ```
+
+## Ask about code that spans files
+
+The question you actually have is usually not about one function. It's about
+how *this* one relates to one somewhere else.
+
+`:AskAdd` attaches the function under the cursor — or a visual range — to your
+next question. Mark as many as you like, across as many files as you like, then
+ask:
+
+```
+in greet.c:      :3,6AskAdd          → 1 reference
+in config.lua:   :AskAdd             → 2 references
+in greeter.lua:  :Ask do these agree about what they return?
+```
+
+All three arrive together, each labelled with its file and line range, so Claude
+answers from the code rather than going looking for it. Ranges are tracked with
+extmarks — edit a file after marking something and the *same lines* are still
+sent, not the same line numbers. [More on references](#references).
+
+## Requirements
+
+- Neovim 0.10+ (`vim.system`, `vim.uv`)
+- `claude` on your `$PATH`, already authenticated
+- A treesitter parser for the language, if you want `:Ask` to find the
+  enclosing function on its own. Without one, select a range first.
+
+askia is a front-end, not a provider. It shells out to the `claude` CLI you have
+already installed, and every `:Ask` is billed to your existing Claude Code plan
+like any other Claude Code call. That is the trade for it being a few hundred
+lines of Lua with no API keys of its own to manage — if you don't use Claude
+Code, this plugin has nothing for you.
 
 Inside the answer window:
 
@@ -61,20 +98,13 @@ rather it fit each answer, `window.auto_height = true` treats `window.height` as
 a ceiling it grows into instead, with the top edge pinned so text doesn't jump
 while it streams.
 
-## Requirements
-
-- Neovim 0.10+ (`vim.system`, `vim.uv`)
-- `claude` on your `$PATH`, already authenticated
-- A treesitter parser for the language, if you want `:Ask` to find the
-  enclosing function on its own. Without one, select a range first.
-
 ## Install
 
 **lazy.nvim**
 
 ```lua
 {
-  "Dudeiebot/askia",
+  "Dudeiebot/askia.nvim",
   cmd = { "Ask", "AskFollow", "AskCancel" },
   keys = {
     { "<leader>aa", ":Ask<CR>", mode = { "n", "x" }, silent = true, desc = "Ask Claude" },
@@ -87,13 +117,13 @@ while it streams.
 **packer.nvim**
 
 ```lua
-use({ "Dudeiebot/askia" })
+use({ "Dudeiebot/askia.nvim" })
 ```
 
 **vim-plug**
 
 ```vim
-Plug 'Dudeiebot/askia'
+Plug 'Dudeiebot/askia.nvim'
 ```
 
 Calling `setup()` is optional — the commands work without it. Call it to change
@@ -208,15 +238,9 @@ it.
 
 ## References
 
-A question is often about how *this* function relates to one somewhere else.
-`:AskAdd` attaches the function under the cursor — or a visual range — to the
-next question. Keep adding across as many files as you like, then ask:
-
-```
-in greet.c:      :3,6AskAdd          → 1 reference
-in config.lua:   :AskAdd             → 2 references
-in greeter.lua:  :Ask do these agree about what they return?
-```
+[As above](#ask-about-code-that-spans-files): `:AskAdd` attaches the function
+under the cursor, or a visual range, to your next question — across as many
+files as you like.
 
 The attached blocks are sent ahead of the code you're asking about, each
 labelled with its file and line range, so Claude has them without going looking:
